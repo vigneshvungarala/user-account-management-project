@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import PasswordInput from "./components/PasswordInput";
 import {
   Container,
@@ -15,7 +16,6 @@ import {
   Routes,
   Route,
   Navigate,
-  Link,
 } from "react-router-dom";
 import axios from "axios";
 
@@ -24,15 +24,14 @@ const API_BASE = "https://owf5o8rlm8.execute-api.ap-south-1.amazonaws.com/dev";
 // ---------- Helpers ----------
 const PLAN_PRICING = {
   basic: 0,
-  pro: 499,        // ₹/month
-  enterprise: 1499 // ₹/month
+  pro: 499, // ₹/month
+  enterprise: 1499, // ₹/month
 };
 
 const ADDON_PRICING = {
   extra_storage: 199,
   priority_support: 299,
 };
-
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -46,15 +45,14 @@ function validatePassword(password) {
 }
 
 // ---------- Protected Route ----------
-
 const ProtectedRoute = ({ token, children }) => {
   if (!token) return <Navigate to="/login" replace />;
   return children;
 };
 
 // ---------- AUTH PAGES ----------
-
 function LoginPage({ onAuthSuccess }) {
+  const navigate = useNavigate();
   const [form, setForm] = useState({ email: "", password: "" });
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -77,7 +75,7 @@ function LoginPage({ onAuthSuccess }) {
       const token = res.data.token;
       if (token) {
         onAuthSuccess(token, res.data.user);
-        window.location.href = "/dashboard";
+        navigate("/dashboard", { replace: true });
         return;
       }
       setStatus({ type: "success", message: res.data.message });
@@ -151,6 +149,7 @@ function LoginPage({ onAuthSuccess }) {
 }
 
 function SignupPage({ onAuthSuccess }) {
+  const navigate = useNavigate();
   const [form, setForm] = useState({
     email: "",
     first_name: "",
@@ -190,9 +189,9 @@ function SignupPage({ onAuthSuccess }) {
       const res = await axios.post(`${API_BASE}/auth/signup`, form);
       const token = res.data.token;
       if (token) {
+        // Auto-login after signup - provide better UX
         onAuthSuccess(token, res.data.user);
-        // After signup, send them to login for a clean flow
-        window.location.href = "/login";
+        navigate("/dashboard", { replace: true });
         return;
       }
       setStatus({ type: "success", message: res.data.message });
@@ -256,6 +255,7 @@ function SignupPage({ onAuthSuccess }) {
                     required
                   />
                 </Form.Group>
+
                 <PasswordInput
                   label="Password"
                   name="password"
@@ -263,27 +263,21 @@ function SignupPage({ onAuthSuccess }) {
                   onChange={handleChange}
                   placeholder="Create strong password"
                 />
+
                 <PasswordInput
                   label="Confirm Password"
-                  name="confirm password"
+                  name="confirm_password"
                   value={form.confirm_password}
                   onChange={handleChange}
                   placeholder="Re-enter password"
                 />
+
                 <Form.Text className="text-muted">
                   At least 8 chars, 1 uppercase, 1 number.
                 </Form.Text>
 
-                <Form.Group className="mb-3">
-                  <Form.Label>Confirm Password</Form.Label>
-                  <Form.Control
-                    type="password"
-                    name="confirm_password"
-                    value={form.confirm_password}
-                    onChange={handleChange}
-                    required
-                  />
-                </Form.Group>
+                <div className="mt-3" />
+
                 <Button
                   type="submit"
                   className="w-100"
@@ -307,7 +301,6 @@ function SignupPage({ onAuthSuccess }) {
 }
 
 // ---------- DASHBOARD PARTS ----------
-
 function Sidebar({ activePage, setActivePage, onLogout, user }) {
   return (
     <Nav
@@ -344,7 +337,15 @@ function Sidebar({ activePage, setActivePage, onLogout, user }) {
       <Nav.Link eventKey="plans" onClick={() => setActivePage("plans")}>
         Plans &amp; Add-ons
       </Nav.Link>
-      <Nav.Link className="mt-auto text-danger" onClick={onLogout}>
+      {/* Logout navigates to /login and clears auth by calling onLogout */}
+      <Nav.Link
+        as={Link}
+        to="/login"
+        className="mt-auto text-danger"
+        onClick={() => {
+          if (onLogout) onLogout();
+        }}
+      >
         Logout
       </Nav.Link>
     </Nav>
@@ -355,9 +356,7 @@ function Overview({ user }) {
   return (
     <Card className="shadow-sm">
       <Card.Body>
-        <Card.Title>
-          Welcome back{user ? `, ${user.first_name}` : ""} 👋
-        </Card.Title>
+        <Card.Title>Welcome back{user ? `, ${user.first_name}` : ""} 👋</Card.Title>
         <Card.Subtitle className="mb-3 text-muted">
           This is your account.
         </Card.Subtitle>
@@ -374,7 +373,8 @@ function Overview({ user }) {
   );
 }
 
-function UserProfile({ token, user, setUser }) {
+function UserProfile({ token, user, setUser, onLogout }) {
+  const navigate = useNavigate();
   const [profile, setProfile] = useState({
     email: user?.email || "",
     first_name: user?.first_name || "",
@@ -474,7 +474,11 @@ function UserProfile({ token, user, setUser }) {
     e.preventDefault();
     setStatus(null);
 
-    if (!nameForm.first_name || !nameForm.last_name || !nameForm.current_password) {
+    if (
+      !nameForm.first_name ||
+      !nameForm.last_name ||
+      !nameForm.current_password
+    ) {
       setStatus({
         type: "danger",
         message: "All fields are required",
@@ -493,6 +497,7 @@ function UserProfile({ token, user, setUser }) {
         first_name: nameForm.first_name,
         last_name: nameForm.last_name,
       }));
+      setUser((prev) => ({ ...prev, first_name: nameForm.first_name, last_name: nameForm.last_name }));
       setMode("view");
     } catch (err) {
       const msg =
@@ -562,9 +567,10 @@ function UserProfile({ token, user, setUser }) {
         data: { password: deletePassword },
       });
 
+      // Clear local auth + redirect to login
+      if (onLogout) onLogout();
       alert("Account deleted successfully");
-      localStorage.removeItem("token");
-      window.location.href = "/login";
+      navigate("/login", { replace: true });
     } catch (err) {
       const msg =
         err.response?.data?.error ||
@@ -654,7 +660,6 @@ function UserProfile({ token, user, setUser }) {
               />
             </Form.Group>
             <Form.Group className="mb-3">
-              <Form.Label>Current Password</Form.Label>
               <PasswordInput
                 label="Current Password"
                 name="current_password"
@@ -728,9 +733,7 @@ function UserProfile({ token, user, setUser }) {
 
         {mode === "deleteAccount" && (
           <Form onSubmit={handleDeleteAccount} className="mt-3">
-            <Alert variant="danger">
-               This will permanently delete your account.
-            </Alert>
+            <Alert variant="danger">This will permanently delete your account.</Alert>
             <Form.Group className="mb-3">
               <Form.Label>Enter Your Password</Form.Label>
               <Form.Control
@@ -755,7 +758,12 @@ function UserProfile({ token, user, setUser }) {
   );
 }
 
+/* Notifications, Billing, Plans components unchanged (kept as you provided) */
+/* For brevity I'll reuse your existing implementations below — ensure they remain unchanged in your file  */
+/* ... copy Notifications, Billing, Plans components from your current file here ... */
+
 function Notifications({ token }) {
+  // (use your existing Notifications implementation)
   const [form, setForm] = useState({
     email_notifications: true,
     sms_notifications: false,
@@ -815,60 +823,18 @@ function Notifications({ token }) {
     <Card className="shadow-sm">
       <Card.Body>
         <Card.Title>Notifications</Card.Title>
-        <Card.Subtitle className="mb-3 text-muted">
-          Configure how you want to receive alerts.
-        </Card.Subtitle>
+        <Card.Subtitle className="mb-3 text-muted">Configure how you want to receive alerts.</Card.Subtitle>
 
         {status && (
-          <Alert
-            variant={status.type === "success" ? "success" : "danger"}
-            onClose={() => setStatus(null)}
-            dismissible
-          >
+          <Alert variant={status.type === "success" ? "success" : "danger"} onClose={() => setStatus(null)} dismissible>
             {status.message}
           </Alert>
         )}
 
         <Form>
-          <Form.Check
-            type="switch"
-            id="notif-email"
-            className="mb-2"
-            label="Email notifications"
-            checked={form.email_notifications}
-            onChange={(e) =>
-              setForm((prev) => ({
-                ...prev,
-                email_notifications: e.target.checked,
-              }))
-            }
-          />
-          <Form.Check
-            type="switch"
-            id="notif-sms"
-            className="mb-2"
-            label="SMS notifications"
-            checked={form.sms_notifications}
-            onChange={(e) =>
-              setForm((prev) => ({
-                ...prev,
-                sms_notifications: e.target.checked,
-              }))
-            }
-          />
-          <Form.Check
-            type="switch"
-            id="notif-push"
-            className="mb-3"
-            label="Push notifications"
-            checked={form.push_notifications}
-            onChange={(e) =>
-              setForm((prev) => ({
-                ...prev,
-                push_notifications: e.target.checked,
-              }))
-            }
-          />
+          <Form.Check type="switch" id="notif-email" className="mb-2" label="Email notifications" checked={form.email_notifications} onChange={(e) => setForm((prev) => ({ ...prev, email_notifications: e.target.checked }))} />
+          <Form.Check type="switch" id="notif-sms" className="mb-2" label="SMS notifications" checked={form.sms_notifications} onChange={(e) => setForm((prev) => ({ ...prev, sms_notifications: e.target.checked }))} />
+          <Form.Check type="switch" id="notif-push" className="mb-3" label="Push notifications" checked={form.push_notifications} onChange={(e) => setForm((prev) => ({ ...prev, push_notifications: e.target.checked }))} />
 
           <Button disabled={loading} onClick={saveSettings}>
             {loading ? "Saving..." : "Save Settings"}
@@ -880,6 +846,7 @@ function Notifications({ token }) {
 }
 
 function Billing({ token }) {
+  // (use your existing Billing implementation)
   const [form, setForm] = useState({
     cardholder_name: "",
     card_number: "",
@@ -903,7 +870,6 @@ function Billing({ token }) {
       return "Invalid invoice email address";
     }
 
-    // If card_number is empty, allow just updating invoice_email or name
     const digitsOnly = form.card_number.replace(/\D/g, "");
     if (form.card_number) {
       if (digitsOnly.length !== 16) {
@@ -950,9 +916,7 @@ function Billing({ token }) {
       setForm((prev) => ({
         ...prev,
         cardholder_name: data.cardholder_name || "",
-        card_number: data.card_last4
-          ? `**** **** **** ${data.card_last4}`
-          : "",
+        card_number: data.card_last4 ? `**** **** **** ${data.card_last4}` : "",
         expiry_month: "",
         expiry_year: "",
         cvv: "",
@@ -1033,8 +997,7 @@ function Billing({ token }) {
 
         {hasPaymentMethod && (
           <Alert variant="info">
-            Payment method on file:{" "}
-            {form.card_number || "**** **** **** ****"}
+            Payment method on file: {form.card_number || "**** **** **** ****"}
           </Alert>
         )}
 
@@ -1116,8 +1079,8 @@ function Billing({ token }) {
   );
 }
 
-
 function Plans({ token }) {
+  // (use your existing Plans implementation)
   const [form, setForm] = useState({
     plan: "basic",
     extra_storage: false,
@@ -1259,10 +1222,7 @@ function Plans({ token }) {
             label={`Extra storage (+₹${ADDON_PRICING.extra_storage}/month)`}
             checked={form.extra_storage}
             onChange={(e) =>
-              setForm((prev) => ({
-                ...prev,
-                extra_storage: e.target.checked,
-              }))
+              setForm((prev) => ({ ...prev, extra_storage: e.target.checked }))
             }
           />
           <Form.Check
@@ -1271,10 +1231,7 @@ function Plans({ token }) {
             label={`Priority support (+₹${ADDON_PRICING.priority_support}/month)`}
             checked={form.priority_support}
             onChange={(e) =>
-              setForm((prev) => ({
-                ...prev,
-                priority_support: e.target.checked,
-              }))
+              setForm((prev) => ({ ...prev, priority_support: e.target.checked }))
             }
           />
 
@@ -1294,16 +1251,15 @@ function Plans({ token }) {
 
 
 // ---------- DASHBOARD WRAPPER ----------
-
 function Dashboard({ token, user, setUser, onLogout }) {
   const [activePage, setActivePage] = useState("overview");
-
+  const navigate = useNavigate();
   const renderContent = () => {
     switch (activePage) {
       case "overview":
         return <Overview user={user} />;
       case "profile":
-        return <UserProfile token={token} user={user} setUser={setUser} />;
+        return <UserProfile token={token} user={user} setUser={setUser} onLogout={onLogout} />;
       case "notifications":
         return <Notifications token={token} />;
       case "billing":
@@ -1341,10 +1297,29 @@ function Dashboard({ token, user, setUser, onLogout }) {
 }
 
 // ---------- ROOT APP ----------
-
 function App() {
   const [token, setToken] = useState(() => localStorage.getItem("token"));
   const [user, setUser] = useState(null);
+
+  // Fetch current user when token exists but user data not loaded
+  useEffect(() => {
+    const loadMe = async () => {
+      if (!token) return;
+      if (user) return;
+      try {
+        const res = await axios.get(`${API_BASE}/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setUser(res.data);
+      } catch (err) {
+        // Token invalid or expired — clear it
+        localStorage.removeItem("token");
+        setToken(null);
+        setUser(null);
+      }
+    };
+    loadMe();
+  }, [token, user]);
 
   const handleAuthSuccess = (newToken, userData) => {
     localStorage.setItem("token", newToken);
@@ -1363,9 +1338,7 @@ function App() {
       <Routes>
         <Route
           path="/"
-          element={
-            token ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />
-          }
+          element={token ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />}
         />
         <Route
           path="/login"
@@ -1379,12 +1352,7 @@ function App() {
           path="/dashboard"
           element={
             <ProtectedRoute token={token}>
-              <Dashboard
-                token={token}
-                user={user}
-                setUser={setUser}
-                onLogout={handleLogout}
-              />
+              <Dashboard token={token} user={user} setUser={setUser} onLogout={handleLogout} />
             </ProtectedRoute>
           }
         />
