@@ -12,12 +12,6 @@
         "region": "ap-south-1",
         "memorySize": 256,
         "timeout": 30,
-        "environment": {
-          "REDIS_HOST": "my-redis-ov2sit.serverless.aps1.cache.amazonaws.com",
-          "REDIS_PORT": "6379",
-          "REDIS_DB": "0",
-          "REDIS_TLS": "true"
-        },
         "vpc": {
           "securityGroupIds": [
             "sg-0df5f019f0236d0c9"
@@ -26,6 +20,14 @@
             "subnet-0e6916e88036da7c4",
             "subnet-042bad505a574c531"
           ]
+        },
+        "environment": {
+          "REDIS_HOST": "my-redis-ov2sit.serverless.aps1.cache.amazonaws.com",
+          "REDIS_PORT": "6379",
+          "REDIS_DB": "0",
+          "REDIS_TLS": "true",
+          "JWT_SECRET": "<REDACTED>",
+          "JWT_ALGO": "HS256"
         },
         "versionFunctions": true,
         "compiledCloudFormationTemplate": {
@@ -135,7 +137,7 @@
               "Properties": {
                 "Code": {
                   "S3Bucket": "serverless-framework-deployments-ap-south-1-8c2599db-d07d",
-                  "S3Key": "serverless/flask-redis-user-api/dev/1763828351483-2025-11-22T16:19:11.483Z/app.zip"
+                  "S3Key": "serverless/flask-redis-user-api/dev/1764333831826-2025-11-28T12:43:51.826Z/flask-redis-user-api.zip"
                 },
                 "Handler": "app.handler",
                 "Runtime": "python3.9",
@@ -147,7 +149,9 @@
                     "REDIS_HOST": "my-redis-ov2sit.serverless.aps1.cache.amazonaws.com",
                     "REDIS_PORT": "6379",
                     "REDIS_DB": "0",
-                    "REDIS_TLS": "true"
+                    "REDIS_TLS": "true",
+                    "JWT_SECRET": "<REDACTED>",
+                    "JWT_ALGO": "HS256"
                   }
                 },
                 "Role": {
@@ -170,14 +174,14 @@
                 "AppLogGroup"
               ]
             },
-            "AppLambdaVersionqksphQbOI4TSfQFbELOFEU05Sq9DmI6febC9vEc0ZTw": {
+            "AppLambdaVersionAmFftfMGSx8DjbHjn2sOTpzAguNqjPxBRCdKnW1RM": {
               "Type": "AWS::Lambda::Version",
               "DeletionPolicy": "Retain",
               "Properties": {
                 "FunctionName": {
                   "Ref": "AppLambdaFunction"
                 },
-                "CodeSha256": "aCNUVyzqi6hogfsHzj1J6YYJ3KvpA+a0PxkoyorkkvI="
+                "CodeSha256": "PjldX133eY6vtsgm3YQpoyrcnNomEHlI4RCswr2FafQ="
               }
             },
             "ApiGatewayRestApi": {
@@ -302,7 +306,7 @@
                 "AppLambdaPermissionApiGateway"
               ]
             },
-            "ApiGatewayDeployment1763828300923": {
+            "ApiGatewayDeployment1764333759424": {
               "Type": "AWS::ApiGateway::Deployment",
               "Properties": {
                 "RestApiId": {
@@ -363,7 +367,7 @@
             "AppLambdaFunctionQualifiedArn": {
               "Description": "Current Lambda function version",
               "Value": {
-                "Ref": "AppLambdaVersionqksphQbOI4TSfQFbELOFEU05Sq9DmI6febC9vEc0ZTw"
+                "Ref": "AppLambdaVersionAmFftfMGSx8DjbHjn2sOTpzAguNqjPxBRCdKnW1RM"
               },
               "Export": {
                 "Name": "sls-flask-redis-user-api-dev-AppLambdaFunctionQualifiedArn"
@@ -398,15 +402,10 @@
           }
         }
       },
-      "package": {
-        "individually": true,
-        "artifactsS3KeyDirname": "serverless/flask-redis-user-api/dev/code-artifacts",
-        "deploymentBucket": "serverless-framework-deployments-ap-south-1-8c2599db-d07d",
-        "artifactDirectoryName": "serverless/flask-redis-user-api/dev/1763828351483-2025-11-22T16:19:11.483Z"
-      },
       "custom": {
         "pythonRequirements": {
-          "dockerizePip": false
+          "useStaticCache": false,
+          "invalidateCaches": true
         }
       },
       "functions": {
@@ -430,14 +429,12 @@
           ],
           "name": "flask-redis-user-api-dev-app",
           "module": ".",
-          "package": {
-            "artifact": ".serverless\\app.zip"
-          },
+          "package": {},
           "memory": 256,
           "timeout": 30,
           "runtime": "python3.9",
           "vpc": {},
-          "versionLogicalId": "AppLambdaVersionqksphQbOI4TSfQFbELOFEU05Sq9DmI6febC9vEc0ZTw"
+          "versionLogicalId": "AppLambdaVersionAmFftfMGSx8DjbHjn2sOTpzAguNqjPxBRCdKnW1RM"
         }
       }
     },
@@ -448,12 +445,6 @@
       "region": "ap-south-1",
       "memorySize": 256,
       "timeout": 30,
-      "environment": {
-        "REDIS_HOST": "my-redis-ov2sit.serverless.aps1.cache.amazonaws.com",
-        "REDIS_PORT": "6379",
-        "REDIS_DB": "0",
-        "REDIS_TLS": "true"
-      },
       "vpc": {
         "securityGroupIds": [
           "sg-0df5f019f0236d0c9"
@@ -462,6 +453,14 @@
           "subnet-0e6916e88036da7c4",
           "subnet-042bad505a574c531"
         ]
+      },
+      "environment": {
+        "REDIS_HOST": "my-redis-ov2sit.serverless.aps1.cache.amazonaws.com",
+        "REDIS_PORT": "6379",
+        "REDIS_DB": "0",
+        "REDIS_TLS": "true",
+        "JWT_SECRET": "<REDACTED>",
+        "JWT_ALGO": "HS256"
       },
       "versionFunctions": true,
       "compiledCloudFormationTemplate": {
@@ -571,7 +570,7 @@
             "Properties": {
               "Code": {
                 "S3Bucket": "serverless-framework-deployments-ap-south-1-8c2599db-d07d",
-                "S3Key": "serverless/flask-redis-user-api/dev/1763828351483-2025-11-22T16:19:11.483Z/app.zip"
+                "S3Key": "serverless/flask-redis-user-api/dev/1764333831826-2025-11-28T12:43:51.826Z/flask-redis-user-api.zip"
               },
               "Handler": "app.handler",
               "Runtime": "python3.9",
@@ -583,7 +582,9 @@
                   "REDIS_HOST": "my-redis-ov2sit.serverless.aps1.cache.amazonaws.com",
                   "REDIS_PORT": "6379",
                   "REDIS_DB": "0",
-                  "REDIS_TLS": "true"
+                  "REDIS_TLS": "true",
+                  "JWT_SECRET": "<REDACTED>",
+                  "JWT_ALGO": "HS256"
                 }
               },
               "Role": {
@@ -606,14 +607,14 @@
               "AppLogGroup"
             ]
           },
-          "AppLambdaVersionqksphQbOI4TSfQFbELOFEU05Sq9DmI6febC9vEc0ZTw": {
+          "AppLambdaVersionAmFftfMGSx8DjbHjn2sOTpzAguNqjPxBRCdKnW1RM": {
             "Type": "AWS::Lambda::Version",
             "DeletionPolicy": "Retain",
             "Properties": {
               "FunctionName": {
                 "Ref": "AppLambdaFunction"
               },
-              "CodeSha256": "aCNUVyzqi6hogfsHzj1J6YYJ3KvpA+a0PxkoyorkkvI="
+              "CodeSha256": "PjldX133eY6vtsgm3YQpoyrcnNomEHlI4RCswr2FafQ="
             }
           },
           "ApiGatewayRestApi": {
@@ -738,7 +739,7 @@
               "AppLambdaPermissionApiGateway"
             ]
           },
-          "ApiGatewayDeployment1763828300923": {
+          "ApiGatewayDeployment1764333759424": {
             "Type": "AWS::ApiGateway::Deployment",
             "Properties": {
               "RestApiId": {
@@ -799,7 +800,7 @@
           "AppLambdaFunctionQualifiedArn": {
             "Description": "Current Lambda function version",
             "Value": {
-              "Ref": "AppLambdaVersionqksphQbOI4TSfQFbELOFEU05Sq9DmI6febC9vEc0ZTw"
+              "Ref": "AppLambdaVersionAmFftfMGSx8DjbHjn2sOTpzAguNqjPxBRCdKnW1RM"
             },
             "Export": {
               "Name": "sls-flask-redis-user-api-dev-AppLambdaFunctionQualifiedArn"
@@ -843,7 +844,7 @@
       "serviceProvider": null,
       "instanceParameters": null
     },
-    "serviceRawFile": "service: flask-redis-user-api\r\n\r\nprovider:\r\n  name: aws\r\n  runtime: python3.9\r\n  stage: dev\r\n  region: ap-south-1\r\n  memorySize: 256\r\n  timeout: 30\r\n  environment:\r\n    REDIS_HOST: my-redis-ov2sit.serverless.aps1.cache.amazonaws.com\r\n    REDIS_PORT: 6379\r\n    REDIS_DB: 0\r\n    REDIS_TLS: \"true\"\r\n  vpc:\r\n    securityGroupIds:\r\n      - sg-0df5f019f0236d0c9\r\n    subnetIds:\r\n      - subnet-0e6916e88036da7c4\r\n      - subnet-042bad505a574c531\r\n\r\npackage:\r\n  individually: true\r\n# custom:\r\n#   pythonRequirements:\r\n#     dockerizePip: true\r\n#     zip: true\r\n#     slim: true\r\n\r\ncustom:\r\n  pythonRequirements:\r\n    dockerizePip: false\r\n\r\nfunctions:\r\n  app:\r\n    handler: app.handler\r\n    events:\r\n      - http:\r\n          path: /\r\n          method: ANY\r\n      - http:\r\n          path: /{proxy+}\r\n          method: ANY\r\n\r\n\r\n\r\n\r\n\r\n",
+    "serviceRawFile": "service: flask-redis-user-api\r\n\r\nprovider:\r\n  name: aws\r\n  runtime: python3.9\r\n  stage: dev\r\n  region: ap-south-1\r\n  memorySize: 256\r\n  timeout: 30\r\n  vpc:\r\n    securityGroupIds:\r\n      - sg-0df5f019f0236d0c9\r\n    subnetIds:\r\n      - subnet-0e6916e88036da7c4\r\n      - subnet-042bad505a574c531\r\n  environment:\r\n    REDIS_HOST: my-redis-ov2sit.serverless.aps1.cache.amazonaws.com\r\n    REDIS_PORT: 6379\r\n    REDIS_DB: 0\r\n    REDIS_TLS: \"true\"\r\n    JWT_SECRET: \"CHANGE_TO_SOME_LONG_RANDOM_SECRET\"\r\n    JWT_ALGO: \"HS256\"\r\n\r\ncustom:\r\n  pythonRequirements:\r\n    useStaticCache: false\r\n    invalidateCaches: true\r\n\r\nfunctions:\r\n  app:\r\n    handler: app.handler\r\n    events:\r\n      - http:\r\n          path: /\r\n          method: ANY\r\n      - http:\r\n          path: /{proxy+}\r\n          method: ANY\r\n",
     "command": [
       "deploy"
     ],
@@ -858,12 +859,12 @@
     "serviceProviderAwsCfStackName": "flask-redis-user-api-dev",
     "serviceProviderAwsCfStackId": "arn:aws:cloudformation:ap-south-1:320819923612:stack/flask-redis-user-api-dev/d29de1e0-c560-11f0-9d33-0a8507d36c07",
     "serviceProviderAwsCfStackCreated": "2025-11-19T16:00:09.110Z",
-    "serviceProviderAwsCfStackUpdated": "2025-11-21T06:14:42.926Z",
+    "serviceProviderAwsCfStackUpdated": "2025-11-28T10:37:49.836Z",
     "serviceProviderAwsCfStackStatus": "UPDATE_COMPLETE",
     "serviceProviderAwsCfStackOutputs": [
       {
         "OutputKey": "AppLambdaFunctionQualifiedArn",
-        "OutputValue": "arn:aws:lambda:ap-south-1:320819923612:function:flask-redis-user-api-dev-app:4",
+        "OutputValue": "arn:aws:lambda:ap-south-1:320819923612:function:flask-redis-user-api-dev-app:12",
         "Description": "Current Lambda function version",
         "ExportName": "sls-flask-redis-user-api-dev-AppLambdaFunctionQualifiedArn"
       },
@@ -986,7 +987,7 @@
           "Properties": {
             "Code": {
               "S3Bucket": "serverless-framework-deployments-ap-south-1-8c2599db-d07d",
-              "S3Key": "serverless/flask-redis-user-api/dev/1763828351483-2025-11-22T16:19:11.483Z/app.zip"
+              "S3Key": "serverless/flask-redis-user-api/dev/1764333831826-2025-11-28T12:43:51.826Z/flask-redis-user-api.zip"
             },
             "Handler": "app.handler",
             "Runtime": "python3.9",
@@ -998,7 +999,9 @@
                 "REDIS_HOST": "my-redis-ov2sit.serverless.aps1.cache.amazonaws.com",
                 "REDIS_PORT": "6379",
                 "REDIS_DB": "0",
-                "REDIS_TLS": "true"
+                "REDIS_TLS": "true",
+                "JWT_SECRET": "<REDACTED>",
+                "JWT_ALGO": "HS256"
               }
             },
             "Role": {
@@ -1021,14 +1024,14 @@
             "AppLogGroup"
           ]
         },
-        "AppLambdaVersionqksphQbOI4TSfQFbELOFEU05Sq9DmI6febC9vEc0ZTw": {
+        "AppLambdaVersionAmFftfMGSx8DjbHjn2sOTpzAguNqjPxBRCdKnW1RM": {
           "Type": "AWS::Lambda::Version",
           "DeletionPolicy": "Retain",
           "Properties": {
             "FunctionName": {
               "Ref": "AppLambdaFunction"
             },
-            "CodeSha256": "aCNUVyzqi6hogfsHzj1J6YYJ3KvpA+a0PxkoyorkkvI="
+            "CodeSha256": "PjldX133eY6vtsgm3YQpoyrcnNomEHlI4RCswr2FafQ="
           }
         },
         "ApiGatewayRestApi": {
@@ -1153,7 +1156,7 @@
             "AppLambdaPermissionApiGateway"
           ]
         },
-        "ApiGatewayDeployment1763828300923": {
+        "ApiGatewayDeployment1764333759424": {
           "Type": "AWS::ApiGateway::Deployment",
           "Properties": {
             "RestApiId": {
@@ -1214,7 +1217,7 @@
         "AppLambdaFunctionQualifiedArn": {
           "Description": "Current Lambda function version",
           "Value": {
-            "Ref": "AppLambdaVersionqksphQbOI4TSfQFbELOFEU05Sq9DmI6febC9vEc0ZTw"
+            "Ref": "AppLambdaVersionAmFftfMGSx8DjbHjn2sOTpzAguNqjPxBRCdKnW1RM"
           },
           "Export": {
             "Name": "sls-flask-redis-user-api-dev-AppLambdaFunctionQualifiedArn"

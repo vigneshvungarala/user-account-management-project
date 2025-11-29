@@ -4,3 +4,5 @@ serverless-wsgi>=1.7.0
 gevent>=21.8.0
 Flask-Cors>=3.0.10
 werkzeug>=2.0
+PyJWT>=2.0
+async-timeout>=4.0.2
