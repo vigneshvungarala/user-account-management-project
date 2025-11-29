@@ -14,7 +14,7 @@ Features include signup, login (JWT), dashboard, profile editing, password chang
 **Status:** Production-ready (backend live)  
 **Author:** Vungarala Vignesh Ravi Kumar — Aspiring Backend Developer
 
-## Live URLs (replace placeholders)
+## Live URLs 
 
 - **Frontend (Netlify):** [https://your-netlify-app-url.netlify.app/](https://user-account-creation.netlify.app/)
 - **Backend API (API Gateway):** https://owf5o8rlm8.execute-api.ap-south-1.amazonaws.com/dev
