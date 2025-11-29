@@ -1,12 +1,12 @@
 # User Account Management System
 **Author:** Vungarala Vignesh Ravi Kumar  
-**Email:** vungarala@example.com  
+**Email:** vungaralavignesh4184@gmail.com  
 
 ## Project Summary
 
 A full-stack, serverless **User Account Management System** built using:
 - Flask backend (AWS Lambda + API Gateway)
-- Redis persistence
+- Redis 
 - React + React-Bootstrap frontend (Netlify)
 
 Features include signup, login (JWT), dashboard, profile editing, password changes, billing (simulated), notifications, plans & add-ons, and secure account deletion.
@@ -16,7 +16,7 @@ Features include signup, login (JWT), dashboard, profile editing, password chang
 
 ## Live URLs (replace placeholders)
 
-- **Frontend (Netlify):** https://your-netlify-app-url.netlify.app/
+- **Frontend (Netlify):** [https://your-netlify-app-url.netlify.app/](https://user-account-creation.netlify.app/)
 - **Backend API (API Gateway):** https://owf5o8rlm8.execute-api.ap-south-1.amazonaws.com/dev
 
 ## Tech Stack
