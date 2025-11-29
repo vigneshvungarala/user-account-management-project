@@ -356,19 +356,21 @@ def change_password():
         app.logger.exception("Password change failed")
         return jsonify({"error": f"Failed to change password: {str(e)}"}), 500
 
-@app.route("/auth/delete-account", methods=["DELETE"])
+# -----------------------------
+# Updated delete_account (fixed: per-key delete to avoid ClusterCrossSlotError)
+# -----------------------------
+@app.route("/auth/delete-account", methods=["DELETE", "POST"])
 @require_auth
 def delete_account():
     """
-    Permanently delete the logged-in user's account.
-    Requires password confirmation.
+    Delete account with per-key deletion to avoid Redis Cluster CROSSSLOT errors.
+    Returns diagnostics for debugging.
     """
     if not request.is_json:
         return jsonify({"error": "Expected JSON body"}), 400
 
     data = request.get_json()
     password = data.get("password")
-
     if not password:
         return jsonify({"error": "Password is required"}), 400
 
@@ -378,7 +380,13 @@ def delete_account():
 
     email = request.user_email
     user_key = generate_user_key(email)
-    user = r.hgetall(user_key)
+
+    # ensure the user exists and password matches
+    try:
+        user = r.hgetall(user_key)
+    except Exception as e:
+        app.logger.exception("Redis hgetall failed when reading user")
+        return jsonify({"error": "Failed to read user from Redis", "detail": str(e)}), 500
 
     if not user:
         return jsonify({"error": "User not found"}), 404
@@ -387,21 +395,92 @@ def delete_account():
     if not check_password_hash(stored_hash, password):
         return jsonify({"error": "Password is incorrect"}), 401
 
-    # Delete user + related settings
+    # Build keys using your helper functions
     keys_to_delete = [
         user_key,
-        f"notifications:{email}",
-        f"billing:{email}",
-        f"plans:{email}",
+        notifications_key(email),
+        billing_key(email),
+        plans_key(email),
     ]
+    keys_to_delete = [k for k in keys_to_delete if k]
 
+    # Gather pre-delete diagnostics
+    diagnostics = {"redis_host": REDIS_HOST, "redis_port": REDIS_PORT, "tls": REDIS_TLS}
     try:
-        r.delete(*keys_to_delete)
-    except Exception as e:
-        app.logger.exception("Failed to delete account")
-        return jsonify({"error": "Failed to delete account"}), 500
+        try:
+            diagnostics["ping"] = r.ping()
+        except Exception as ping_err:
+            diagnostics["ping_error"] = str(ping_err)
 
-    return jsonify({"message": "Account deleted successfully"}), 200
+        diag_keys = {}
+        for k in keys_to_delete:
+            try:
+                exists = bool(r.exists(k))
+                ktype = r.type(k) if exists else None
+                length = None
+                if exists:
+                    if ktype == "hash":
+                        length = r.hlen(k)
+                    elif ktype == "string":
+                        length = r.strlen(k)
+                    elif ktype == "list":
+                        length = r.llen(k)
+                    elif ktype == "set":
+                        length = r.scard(k)
+                    elif ktype == "zset":
+                        length = r.zcard(k)
+                diag_keys[k] = {"exists": exists, "type": ktype, "length": length}
+            except Exception as e:
+                app.logger.exception("Failed to inspect key %s", k)
+                diag_keys[k] = {"inspect_error": str(e)}
+
+        diagnostics["keys"] = diag_keys
+    except Exception as e:
+        app.logger.exception("Diagnostics gathering failed")
+        return jsonify({"error": "Failed gathering diagnostics", "detail": str(e)}), 500
+
+    # Per-key delete to avoid CROSSSLOT
+    try:
+        app.logger.info(f"Attempting to delete keys for {email} (per-key): {keys_to_delete}")
+        deleted_total = 0
+        per_key_results = {}
+
+        for k in keys_to_delete:
+            try:
+                if hasattr(r, "unlink"):
+                    res = r.unlink(k)
+                    method = "unlink"
+                else:
+                    res = r.delete(k)
+                    method = "delete"
+                per_key_results[k] = {"method": method, "returned": res}
+                deleted_total += int(res or 0)
+            except Exception as e:
+                app.logger.exception("Failed deleting key %s", k)
+                per_key_results[k] = {"error": str(e)}
+
+        app.logger.info(f"Per-key delete results: {per_key_results}")
+        diagnostics["delete_method"] = "per-key"
+        diagnostics["delete_return"] = {"deleted_total": deleted_total, "per_key": per_key_results}
+
+        # Re-check keys post-delete
+        post_diag = {}
+        for k in keys_to_delete:
+            try:
+                exists = bool(r.exists(k))
+                post_diag[k] = {"exists": exists}
+            except Exception as e:
+                post_diag[k] = {"post_inspect_error": str(e)}
+        diagnostics["post_delete"] = post_diag
+
+        return jsonify({
+            "message": "Attempted account deletion (per-key)",
+            "diagnostics": diagnostics
+        }), 200
+    except Exception as e:
+        app.logger.exception("Failed to delete account keys")
+        diagnostics["delete_exception"] = str(e)
+        return jsonify({"error": "Failed to delete account", "diagnostics": diagnostics}), 500
 
 # -----------------------------
 # Settings routes (Notifications, Billing, Plans)
@@ -444,105 +523,105 @@ def settings_notifications():
 @app.route("/settings/billing", methods=["GET", "PUT"])
 @require_auth
 def billing_settings():
-  r = get_redis()
-  if r is None:
-      return jsonify({"error": "Redis unavailable"}), 503
+    r = get_redis()
+    if r is None:
+        return jsonify({"error": "Redis unavailable"}), 503
 
-  email = request.user_email
-  billing_key = f"billing:{email}"
+    email = request.user_email
+    billing_key_name = billing_key(email)  # use helper (settings:billing:email)
 
-  if request.method == "GET":
-      data = r.hgetall(billing_key) or {}
-      return jsonify({
-          "cardholder_name": data.get("cardholder_name", ""),
-          "card_last4": data.get("card_last4", ""),
-          "invoice_email": data.get("invoice_email", "")
-      })
+    if request.method == "GET":
+        data = r.hgetall(billing_key_name) or {}
+        return jsonify({
+            "cardholder_name": data.get("cardholder_name", ""),
+            "card_last4": data.get("card_last4", ""),
+            "invoice_email": data.get("invoice_email", "")
+        })
 
-  # PUT
-  if not request.is_json:
-      return jsonify({"error": "Expected JSON body"}), 400
+    # PUT
+    if not request.is_json:
+        return jsonify({"error": "Expected JSON body"}), 400
 
-  payload = request.get_json()
-  cardholder_name = payload.get("cardholder_name", "").strip()
-  card_number = (payload.get("card_number") or "").strip()
-  expiry_month = (payload.get("expiry_month") or "").strip()
-  expiry_year = (payload.get("expiry_year") or "").strip()
-  cvv = (payload.get("cvv") or "").strip()
-  invoice_email = (payload.get("invoice_email") or "").strip()
+    payload = request.get_json()
+    cardholder_name = payload.get("cardholder_name", "").strip()
+    card_number = (payload.get("card_number") or "").strip()
+    expiry_month = (payload.get("expiry_month") or "").strip()
+    expiry_year = (payload.get("expiry_year") or "").strip()
+    cvv = (payload.get("cvv") or "").strip()
+    invoice_email = (payload.get("invoice_email") or "").strip()
 
-  if invoice_email and "@" not in invoice_email:
-      return jsonify({"error": "Invalid invoice email"}), 400
+    if invoice_email and "@" not in invoice_email:
+        return jsonify({"error": "Invalid invoice email"}), 400
 
-  # Basic card validations (for demo only)
-  digits_only = "".join(ch for ch in card_number if ch.isdigit())
-  if card_number:
-      if len(digits_only) != 16:
-          return jsonify({"error": "Card number must be 16 digits"}), 400
-      if not cardholder_name:
-          return jsonify({"error": "Cardholder name is required"}), 400
-      if not expiry_month or not expiry_year:
-          return jsonify({"error": "Expiry month and year are required"}), 400
-      if not cvv or len(cvv) < 3:
-          return jsonify({"error": "Invalid CVV"}), 400
+    # Basic card validations (for demo only)
+    digits_only = "".join(ch for ch in card_number if ch.isdigit())
+    if card_number:
+        if len(digits_only) != 16:
+            return jsonify({"error": "Card number must be 16 digits"}), 400
+        if not cardholder_name:
+            return jsonify({"error": "Cardholder name is required"}), 400
+        if not expiry_month or not expiry_year:
+            return jsonify({"error": "Expiry month and year are required"}), 400
+        if not cvv or len(cvv) < 3:
+            return jsonify({"error": "Invalid CVV"}), 400
 
-  stored = r.hgetall(billing_key) or {}
+    stored = r.hgetall(billing_key_name) or {}
 
-  # Only store last4, never full number (demo best practice)
-  if digits_only:
-      stored["cardholder_name"] = cardholder_name
-      stored["card_last4"] = digits_only[-4:]
-  if invoice_email:
-      stored["invoice_email"] = invoice_email
+    # Only store last4, never full number (demo best practice)
+    if digits_only:
+        stored["cardholder_name"] = cardholder_name
+        stored["card_last4"] = digits_only[-4:]
+    if invoice_email:
+        stored["invoice_email"] = invoice_email
 
-  r.hset(billing_key, mapping=stored)
+    r.hset(billing_key_name, mapping=stored)
 
-  return jsonify({"message": "Billing info saved"}), 200
+    return jsonify({"message": "Billing info saved"}), 200
 
 @app.route("/settings/plans", methods=["GET", "PUT"])
 @require_auth
 def plans_settings():
-  r = get_redis()
-  if r is None:
-      return jsonify({"error": "Redis unavailable"}), 503
+    r = get_redis()
+    if r is None:
+        return jsonify({"error": "Redis unavailable"}), 503
 
-  email = request.user_email
-  plans_key = f"plans:{email}"
-  billing_key = f"billing:{email}"
+    email = request.user_email
+    plans_key_name = plans_key(email)
+    billing_key_name = billing_key(email)
 
-  if request.method == "GET":
-      data = r.hgetall(plans_key) or {}
-      return jsonify({
-          "plan": data.get("plan", "basic"),
-          "extra_storage": data.get("extra_storage", "0") == "1",
-          "priority_support": data.get("priority_support", "0") == "1"
-      })
+    if request.method == "GET":
+        data = r.hgetall(plans_key_name) or {}
+        return jsonify({
+            "plan": data.get("plan", "basic"),
+            "extra_storage": data.get("extra_storage", "0") == "1",
+            "priority_support": data.get("priority_support", "0") == "1"
+        })
 
-  # PUT
-  if not request.is_json:
-      return jsonify({"error": "Expected JSON body"}), 400
+    # PUT
+    if not request.is_json:
+        return jsonify({"error": "Expected JSON body"}), 400
 
-  payload = request.get_json()
-  plan = payload.get("plan", "basic")
-  extra_storage = bool(payload.get("extra_storage", False))
-  priority_support = bool(payload.get("priority_support", False))
-  total_price = int(payload.get("total_price", 0))
+    payload = request.get_json()
+    plan = payload.get("plan", "basic")
+    extra_storage = bool(payload.get("extra_storage", False))
+    priority_support = bool(payload.get("priority_support", False))
+    total_price = int(payload.get("total_price", 0))
 
-  # If it's a paid plan, ensure billing method exists
-  billing_data = r.hgetall(billing_key) or {}
-  has_card = bool(billing_data.get("card_last4"))
+    # If it's a paid plan, ensure billing method exists
+    billing_data = r.hgetall(billing_key_name) or {}
+    has_card = bool(billing_data.get("card_last4"))
 
-  if total_price > 0 and not has_card:
-      return jsonify({"error": "Add a billing method before selecting a paid plan"}), 400
+    if total_price > 0 and not has_card:
+        return jsonify({"error": "Add a billing method before selecting a paid plan"}), 400
 
-  r.hset(plans_key, mapping={
-      "plan": plan,
-      "extra_storage": "1" if extra_storage else "0",
-      "priority_support": "1" if priority_support else "0",
-      "last_price": str(total_price)
-  })
+    r.hset(plans_key_name, mapping={
+        "plan": plan,
+        "extra_storage": "1" if extra_storage else "0",
+        "priority_support": "1" if priority_support else "0",
+        "last_price": str(total_price)
+    })
 
-  return jsonify({"message": "Plan updated successfully"}), 200
+    return jsonify({"message": "Plan updated successfully"}), 200
 
 
 # -----------------------------
