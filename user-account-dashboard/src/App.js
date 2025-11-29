@@ -557,26 +557,37 @@ function UserProfile({ token, user, setUser, onLogout }) {
     setStatus(null);
 
     if (!deletePassword) {
-      setStatus({ type: "danger", message: "Password required" });
-      return;
+        setStatus({ type: "danger", message: "Password required" });
+    return;
     }
 
+    setLoading(true);
     try {
-      await axios.delete(`${API_BASE}/auth/delete-account`, {
-        headers: authHeader,
-        data: { password: deletePassword },
-      });
+      // Use POST for delete-action - more compatible with API Gateway & browsers
+      const res = await axios.post(
+        `${API_BASE}/auth/delete-account`,
+        { password: deletePassword },
+        { headers: authHeader }
+      );
 
-      // Clear local auth + redirect to login
-      if (onLogout) onLogout();
-      alert("Account deleted successfully");
-      navigate("/login", { replace: true });
+      if (res.status === 200 || res.status === 204) {
+        // clear local state + redirect to login
+        if (onLogout) onLogout();
+        alert("Account deleted successfully");
+        // navigate to login (you used useNavigate earlier)
+        // if navigate not in scope, use window.location:
+        window.location.href = "/login";
+      } else {
+        setStatus({ type: "danger", message: res.data?.message || "Failed to delete" });
+      }
     } catch (err) {
       const msg =
         err.response?.data?.error ||
         err.response?.data?.message ||
         err.message;
       setStatus({ type: "danger", message: msg });
+    } finally {
+      setLoading(false);
     }
   };
 
